@@ -1,63 +1,52 @@
 package com.rakovsky.judgeTracker.bot;
 
+import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.UpdatesListener;
+import com.pengrad.telegrambot.model.Message;
+import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.SendMessage;
+import com.rakovsky.judgeTracker.constants.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
-import java.util.List;
 
 @Component
-public class LawyerHelperBot extends TelegramLongPollingBot {
+public class LawyerHelperBot  {
 
     private static final Logger logger = LoggerFactory.getLogger(LawyerHelperBot.class);
 
+        // Creating bot passing the token received from @BotFather
+        private final TelegramBot bot = new TelegramBot(System.getenv("BOT_TOKEN"));
+        public void serve() {
 
-    private final String botUsername = System.getenv("BOT_NAME");
+        // Registering for updates
+        bot.setUpdatesListener(updates -> {
+            updates.forEach(this::process);
+            return UpdatesListener.CONFIRMED_UPDATES_ALL;
+        });
 
 
-    public LawyerHelperBot(@Value("${BOT_TOKEN}") String botToken) {
-        super(botToken);
     }
 
+        private void process(Update update) {
+        Message message = update.message() == null ? update.channelPost() : update.message();
+        SendMessage sendMessage = null;
 
-
-    @Override
-    public void onUpdateReceived(Update update) {
-        if (update.hasMessage()) {
-            Message message = update.getMessage();
-            SendMessage response = new SendMessage();
-            Long chatId = message.getChatId();
-            response.setChatId(String.valueOf(chatId));
-            String text = message.getText();
-            response.setText(text);
-            try {
-                execute(response);
-                logger.info("Sent message \"{}\" to {}", text, chatId);
-            } catch (TelegramApiException e) {
-                logger.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
-            }
+        if (message != null && message.text() != null) {
+            String messageToBot = message.text().replace(System.getenv("BOT_NAME"),"");
+            long chatId = message.chat().id();
+            sendMessage = new SendMessage(chatId, Constants.BOT_COMMANDS.getOrDefault(messageToBot.toLowerCase(), "test"));
+        }
+        if (sendMessage != null) {
+            bot.execute(sendMessage);
         }
     }
-    @Override
-    public void onUpdatesReceived(List<Update> updates) {
-        super.onUpdatesReceived(updates);
+
+    public void sendMessage(String message, long chatId) {
+        SendMessage sendMessage = new SendMessage(chatId, message);
+        bot.execute(sendMessage);
     }
 
-    @Override
-    public String getBotUsername() {
-        return botUsername;
-    }
-
-    @Override
-    public void onRegister() {
-        super.onRegister();
-    }
 
 }

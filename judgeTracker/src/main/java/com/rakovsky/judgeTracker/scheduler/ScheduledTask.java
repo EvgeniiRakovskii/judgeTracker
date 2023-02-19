@@ -1,6 +1,5 @@
-package com.rakovsky.judgeTracker.schedul;
+package com.rakovsky.judgeTracker.scheduler;
 
-import com.rakovsky.judgeTracker.JudgeTrackerApplication;
 import com.rakovsky.judgeTracker.bot.LawyerHelperBot;
 import com.rakovsky.judgeTracker.model.CourtCase;
 import com.rakovsky.judgeTracker.service.CourtService;
@@ -8,10 +7,10 @@ import com.rakovsky.judgeTracker.service.WebPageService;
 import com.rakovsky.judgeTracker.service.parser.ExcelParser;
 import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch;
 import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -20,6 +19,8 @@ import org.springframework.util.StringUtils;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import static java.util.stream.Collectors.toCollection;
 
 @EnableAsync
 @Component
@@ -37,54 +38,65 @@ public class ScheduledTask {
     private static final Logger logger = LoggerFactory.getLogger(ScheduledTask.class);
 
 
-    @Async
-    @Scheduled(cron = "0 15 10 15 * ?", zone = "Europe/Paris")
+    //@Async
+    @Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
+    //@Scheduled(cron = "0 0 11 * * *", zone = "Europe/Paris")
     public void checkDifference() {
 
         //List<CourtCase> newCases = excelParser.getCourtCasesFromExcel("C:\\Users\\RayS\\IdeaProjects\\judgeTracker\\judgeTracker\\cases.xlsx");
         //courtService.saveCases(newCases);
-
+        logger.info("Start checking difference");
         List<CourtCase> cases = courtService.getAllCases().stream().sorted().toList();
         Set<String> differences = new HashSet<>();
+        Set<String> unsuccessful = new HashSet<>();
 
         for (CourtCase courtCase:cases) {
             try {
-
+                logger.info(courtCase.toString());
                 Document casePage = webPageService.getCasePageWithDelay(courtCase);
-
                 int numberOfColumns = casePage.getElementsByClass("tabs").get(0).childNodeSize();
+                Elements elements = casePage.getElementsByAttributeValueStarting("id","cont");
+                String tableInfo;
 
-                // попробовать сохранить в бд?
-                String tableInfo = casePage.getElementsContainingOwnText("Движение дела").get(1).parent().parent().html();
-                System.out.println(courtCase);
+                if(webPageService.havePdfAct(casePage)) {
+                    tableInfo = elements.stream().filter(element -> element.getElementsByAttributeValueStarting("id","cont_doc").isEmpty()).
+                            collect(toCollection(Elements::new)).text();
+
+                } else {
+                    tableInfo = elements.text();
+                }
+                String tableInfoWithoutTag = tableInfo.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").replaceAll("\\d","");
+
                 // разница в таблицах
                 if (courtCase.getNumberOfColumn() != null && StringUtils.hasText(courtCase.getMotionOfCase())) {
 
                     if (courtCase.getNumberOfColumn().equals(numberOfColumns)
-                            && courtCase.getMotionOfCase().equals(tableInfo)) {
+                            && courtCase.getMotionOfCase().equals(tableInfoWithoutTag)) {
                         continue;
                     }
                     DiffMatchPatch dmp = new DiffMatchPatch();
-                    DiffMatchPatch.Diff diff = dmp.diffMain(tableInfo, futureTable, false).stream().filter(difference -> difference.operation.equals(DiffMatchPatch.Operation.INSERT)).findFirst().orElseGet(null);
+                    DiffMatchPatch.Diff diff = dmp.diffMain(tableInfoWithoutTag, courtCase.getMotionOfCase(), false).stream().filter(difference -> difference.operation.equals(DiffMatchPatch.Operation.INSERT)).findFirst().orElseThrow();
                     differences.add("Разница у " + courtCase.getCustomName() + " в " + diff.text);
+                    // cохранить в бд
 
                     // отправляем боту
                     // бот спрашивает удалить ли ему дело? Если да - то дергается удаление,
                     // надо наверное удалять по номеру дела
-                    // а дальше что? После принятия сохраняем в бд?
+
                 } else {
                     // заполняем таблицу значениями если информации нет
                     courtCase.setNumberOfColumn(numberOfColumns);
-                    courtCase.setMotionOfCase(tableInfo);
+                    courtCase.setMotionOfCase(tableInfoWithoutTag);
                     courtService.saveCourtCase(courtCase);
                 }
             } catch (Exception e) {
-                System.out.println(e.getMessage());
-                System.out.println("Ошибка " + courtCase);
-
+                logger.error(e.getMessage() + " " + courtCase);
+                unsuccessful.add("Ошибка у дела " + courtCase.getCustomName() + " url " + courtCase.getUrlForCase());
             }
         }
         differences.forEach(System.out::println);
+        unsuccessful.forEach(System.out::println);
+        //lawyerHelperBot.sendMessage();
     }
 
     private final static String futureTable = "<tr>\n" +

@@ -26,9 +26,13 @@ public class WebPageService {
     public Document getCasePageWithDelay(CourtCase courtCase) throws Exception {
         Document commonPage = getWebPage(courtCase.getUrlForCase());
         String link = commonPage.getElementsContainingOwnText(courtCase.getCaseNumber()).attr("href");
-        TimeUnit.MINUTES.sleep(3);
+        TimeUnit.MINUTES.sleep(1);
         return getWebPage(link);
 
+    }
+
+    public boolean havePdfAct(Document casePage) {
+        return casePage.getElementsByClass("contentt").size() > 1;
     }
 
     private Document getWebPage(String url) throws IOException {

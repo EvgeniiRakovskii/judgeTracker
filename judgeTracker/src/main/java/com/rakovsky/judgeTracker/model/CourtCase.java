@@ -85,7 +85,6 @@ public class CourtCase implements Comparable<CourtCase> {
                 ", customName='" + customName + '\'' +
                 ", url='" + url + '\'' +
                 ", caseNumber='" + caseNumber + '\'' +
-                ", numberOfColumn=" + numberOfColumn +
                 '}';
     }
 
