@@ -6,7 +6,6 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -24,14 +23,12 @@ public class ExcelParser {
         Sheet sheet = workbook.getSheetAt(0);
 
         for (Row row : sheet) {
+            if(row.getCell(0)==null){
+                break;
+            }
             String customName = row.getCell(0).getStringCellValue();
             String url = row.getCell(1).getStringCellValue();
             String caseNumber = row.getCell(2).getStringCellValue();
-
-            if(!StringUtils.hasText(caseNumber) ||
-            !url.startsWith("http")){
-                break;
-            }
 
             CourtCase courtCase = new CourtCase(
                     customName,

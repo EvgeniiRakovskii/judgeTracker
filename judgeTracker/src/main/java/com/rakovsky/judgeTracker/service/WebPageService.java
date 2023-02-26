@@ -26,7 +26,7 @@ public class WebPageService {
     public Document getCasePageWithDelay(CourtCase courtCase) throws Exception {
         Document commonPage = getWebPage(courtCase.getUrlForCase());
         String link = commonPage.getElementsContainingOwnText(courtCase.getCaseNumber()).attr("href");
-        TimeUnit.MINUTES.sleep(1);
+        TimeUnit.MINUTES.sleep(2);
         return getWebPage(link);
 
     }

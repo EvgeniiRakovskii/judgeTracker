@@ -21,19 +21,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class JudgeTrackerApplication implements CommandLineRunner {
 //public class JudgeTrackerApplication {
-
-	@Autowired
-	private CourtService courtService;
-	@Autowired
-	private ExcelParser excelParser;
-	@Autowired
-	private WebPageService webPageService;
+	//TODO white list of users
+	//Прикрепить юзера и чат id, к таблице
 	@Autowired
 	private LawyerHelperBot lawyerHelperBot;
-
-	private static final Logger logger = LoggerFactory.getLogger(JudgeTrackerApplication.class);
-
-
 
 	@Override
 	public void run(String... args) {
@@ -51,7 +42,6 @@ public class JudgeTrackerApplication implements CommandLineRunner {
 	// написать тест
 	public static void main(String[] args) {
 		SpringApplication.run(JudgeTrackerApplication.class, args);
-
 	}
 
 
