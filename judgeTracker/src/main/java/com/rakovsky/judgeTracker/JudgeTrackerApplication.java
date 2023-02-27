@@ -11,6 +11,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -21,7 +22,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class JudgeTrackerApplication implements CommandLineRunner {
 //public class JudgeTrackerApplication {
-	//TODO white list of users
+	//
 	//Прикрепить юзера и чат id, к таблице
 	@Autowired
 	private LawyerHelperBot lawyerHelperBot;
@@ -34,11 +35,7 @@ public class JudgeTrackerApplication implements CommandLineRunner {
 
 
 	//Функции бота
-	// Добавить дело, введите custom_name, введите url, введите номер дела
-	// Загрузить excel, где бот говорит что excel должно быть следующего вида
 	// Найти дело -> Удалить дело по номеру дела
-	// Настроить время оповещений
-	// Надо сделать белый лист, в котором будет указаны пользователи которые могут пользоваться ботом, если хотите пользоваться - напишите мне
 	// написать тест
 	public static void main(String[] args) {
 		SpringApplication.run(JudgeTrackerApplication.class, args);

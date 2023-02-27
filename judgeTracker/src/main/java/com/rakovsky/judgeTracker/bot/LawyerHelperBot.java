@@ -21,6 +21,7 @@ import java.net.URL;
 import java.util.Set;
 
 import static com.rakovsky.judgeTracker.constants.Constants.CHAT_ID;
+import static com.rakovsky.judgeTracker.constants.Constants.WHITE_LIST_USERS;
 
 
 @Component
@@ -38,13 +39,16 @@ public class LawyerHelperBot {
 
         // Registering for updates
         bot.setUpdatesListener(updates -> {
-            updates.forEach(this::process);
+            updates.stream().filter(update -> WHITE_LIST_USERS.contains(update.message().from().username())).forEach(this::process);
             return UpdatesListener.CONFIRMED_UPDATES_ALL;
         });
 
 
     }
 
+
+    //TODO excel parser validation
+    //
     private void process(Update update) {
         Message message = update.message() == null ? update.channelPost() : update.message();
         SendMessage sendMessage = null;
@@ -77,6 +81,7 @@ public class LawyerHelperBot {
 
         }
         if (sendMessage != null) {
+            sendMessage.parseMode(ParseMode.MarkdownV2);
             bot.execute(sendMessage);
         }
     }
