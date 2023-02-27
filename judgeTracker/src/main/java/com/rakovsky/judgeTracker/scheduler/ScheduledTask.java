@@ -4,8 +4,6 @@ import com.rakovsky.judgeTracker.bot.LawyerHelperBot;
 import com.rakovsky.judgeTracker.model.CourtCase;
 import com.rakovsky.judgeTracker.service.CourtService;
 import com.rakovsky.judgeTracker.service.WebPageService;
-import com.rakovsky.judgeTracker.service.parser.ExcelParser;
-import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
@@ -16,7 +14,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,8 +27,6 @@ public class ScheduledTask {
     @Autowired
     private CourtService courtService;
     @Autowired
-    private ExcelParser excelParser;
-    @Autowired
     private WebPageService webPageService;
     @Autowired
     private LawyerHelperBot lawyerHelperBot;
@@ -40,11 +35,11 @@ public class ScheduledTask {
 
 
     //@Async
-    @Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
-    //@Scheduled(cron = "0 0 12 * * *", zone = "Europe/Paris")
-    public void checkDifference() throws IOException {
+    //@Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
+    @Scheduled(cron = "0 0 10 * * *", zone = "Europe/Paris")
+    public void checkDifference() {
         logger.info("Start checking difference");
-        List<CourtCase> cases = courtService.getAllCases().stream().sorted().filter(courtCase -> courtCase.getCustomName().equals("Быкановы – Сэтл Инвест") || courtCase.getCustomName().equals("Смирнова – Сэтл Сити")).toList();
+        List<CourtCase> cases = courtService.getAllCases().stream().sorted().toList();
         Set<String> differences = new HashSet<>();
         Set<String> unsuccessful = new HashSet<>();
 
@@ -68,27 +63,32 @@ public class ScheduledTask {
                 // разница в таблицах
                 if (courtCase.getNumberOfColumn() != null && StringUtils.hasText(courtCase.getMotionOfCase())) {
 
-                    if (courtCase.getNumberOfColumn().equals(numberOfColumns)
-                            && courtCase.getMotionOfCase().equals(tableInfoWithoutTag)) {
-                        continue;
+                    if (!courtCase.getMotionOfCase().equals(tableInfoWithoutTag)) {
+                        differences.add(String.format(" [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
                     }
 
-                    differences.add(String.format(" [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
+                    courtCase.setNumberOfColumn(numberOfColumns);
+                    courtCase.setMotionOfCase(tableInfoWithoutTag);
+                    courtService.saveCourtCase(courtCase);
                 }
-
-                courtCase.setNumberOfColumn(numberOfColumns);
-                courtCase.setMotionOfCase(tableInfoWithoutTag);
-                courtService.saveCourtCase(courtCase);
-
             } catch (Exception e) {
                 logger.error(e.getMessage() + " " + courtCase);
                 //может в сам объект и там метод получить ссылку для неудачной?
-                unsuccessful.add(String.format(" [%s](%s)", courtCase.getCustomName(), courtCase.getUrlForCase()));
+                unsuccessful.add(String.format(" [%s](%s) %s \n", courtCase.getCustomName(), courtCase.getUrlForCase(), e.getMessage()));
             }
         }
         differences.forEach(System.out::println);
         unsuccessful.forEach(System.out::println);
         lawyerHelperBot.sendResultMessage(differences, unsuccessful);
     }
+
+    //@Async
+    //@Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
+
+    //@Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
+    //public void saveExcel() throws IOException {
+        //System.out.println(courtService.updateCasesByExcel());
+        //System.out.println();
+        //}
 
 }

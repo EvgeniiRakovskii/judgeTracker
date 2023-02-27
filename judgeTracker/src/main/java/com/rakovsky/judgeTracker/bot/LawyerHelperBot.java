@@ -2,15 +2,22 @@ package com.rakovsky.judgeTracker.bot;
 
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
+import com.pengrad.telegrambot.model.File;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.request.ParseMode;
+import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.GetFileResponse;
 import com.rakovsky.judgeTracker.constants.Constants;
+import com.rakovsky.judgeTracker.service.CourtService;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.net.URL;
 import java.util.Set;
 
 import static com.rakovsky.judgeTracker.constants.Constants.CHAT_ID;
@@ -18,6 +25,9 @@ import static com.rakovsky.judgeTracker.constants.Constants.CHAT_ID;
 
 @Component
 public class LawyerHelperBot {
+
+    @Autowired
+    private CourtService courtService;
 
     private static final Logger logger = LoggerFactory.getLogger(LawyerHelperBot.class);
 
@@ -45,6 +55,26 @@ public class LawyerHelperBot {
             if (Constants.BOT_COMMANDS.containsKey(messageToBot.toLowerCase())) {
                 sendMessage = new SendMessage(chatId, Constants.BOT_COMMANDS.get(messageToBot.toLowerCase()));
             }
+        }
+        if(message != null && message.document()!=null && message.document().fileName().contains("xlsx")) {
+            GetFile request = new GetFile(message.document().fileId());
+            GetFileResponse getFileResponse = bot.execute(request);
+
+            File file = getFileResponse.file(); // com.pengrad.telegrambot.model.File
+            String fullPath = bot.getFullFilePath(file);
+
+            try {
+
+                java.io.File realFile = new java.io.File("C:\\Users\\RayS\\IdeaProjects\\judgeTracker\\judgeTracker\\cases.xlsx");
+                FileUtils.copyURLToFile(new URL(fullPath), realFile);
+                courtService.updateCasesByExcel();
+                sendMessage = new SendMessage(message.chat().id(), "File received");
+            }
+            catch (Exception e) {
+                sendMessage = new SendMessage(message.chat().id(), e.getMessage());
+            }
+
+
         }
         if (sendMessage != null) {
             bot.execute(sendMessage);
