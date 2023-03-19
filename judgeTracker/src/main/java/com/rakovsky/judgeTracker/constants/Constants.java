@@ -10,8 +10,9 @@ public class Constants {
     public static final Map<String, String> BOT_COMMANDS;
     public static final Set<String> WHITE_LIST_USERS;
 
-    //public static final long CHAT_ID = -830348174;
     public static final long CHAT_ID = -764133074;
+    //TODO move to property
+    public static final String PATH_TO_LOCAL_EXCEL = "C:\\Users\\RayS\\IdeaProjects\\judgeTracker\\judgeTracker\\cases.xlsx";
 
     static {
         BOT_COMMANDS = new HashMap<>();

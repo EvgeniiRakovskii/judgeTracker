@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CourtRepository extends JpaRepository<CourtCase, Long> {
 
+    CourtCase findByCaseNumber(String caseNumber);
 }

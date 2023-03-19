@@ -15,7 +15,7 @@ import java.util.List;
 @Service
 public class ExcelParser {
 
-    public List<CourtCase> getCourtCasesFromExcel(String path) throws IOException {
+    public List<CourtCase> getNewCourtCases(String path) throws IOException {
         FileInputStream file = new FileInputStream(path);
         Workbook workbook = new XSSFWorkbook(file);
         List<CourtCase> courtCases = new ArrayList<>();
@@ -23,7 +23,7 @@ public class ExcelParser {
         Sheet sheet = workbook.getSheetAt(0);
 
         for (Row row : sheet) {
-            if(row.getCell(0)==null){
+            if (row.getCell(0) == null || row.getCell(0).getStringCellValue().isEmpty()) {
                 break;
             }
             String customName = row.getCell(0).getStringCellValue();
