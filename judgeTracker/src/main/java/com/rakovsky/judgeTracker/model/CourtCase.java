@@ -90,7 +90,7 @@ public class CourtCase implements Comparable<CourtCase> {
 
     @Override
     public int compareTo(CourtCase o) {
-        return Integer.compare(getId(), o.getId());
+        return CharSequence.compare(getCustomName(), o.getCustomName());
 
     }
 }

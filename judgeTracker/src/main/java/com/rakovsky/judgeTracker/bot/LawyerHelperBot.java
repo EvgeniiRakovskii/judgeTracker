@@ -2,9 +2,11 @@ package com.rakovsky.judgeTracker.bot;
 
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
+import com.pengrad.telegrambot.model.File;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.request.ParseMode;
+import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.rakovsky.judgeTracker.constants.Constants;
 import com.rakovsky.judgeTracker.service.TelegramBotService;
@@ -22,9 +24,10 @@ import static com.rakovsky.judgeTracker.constants.Constants.WHITE_LIST_USERS;
 @Component
 public class LawyerHelperBot {
 
-    public static final String EXCEL_FILE_FORMAT = "xlsx";
-    public static final String BOT_TOKEN = "BOT_TOKEN";
-    public static final String BOT_NAME = "BOT_NAME";
+    private static final String EXCEL_FILE_FORMAT = "xlsx";
+    private static final String BOT_TOKEN = "BOT_TOKEN";
+    private static final String BOT_NAME = "BOT_NAME";
+    private static boolean canUploadFile;
     private static final Logger logger = LoggerFactory.getLogger(LawyerHelperBot.class);
     // Creating bot passing the token received from @BotFather
     private final TelegramBot bot = new TelegramBot(System.getenv(BOT_TOKEN));
@@ -53,23 +56,29 @@ public class LawyerHelperBot {
 
         if (message.text() != null) {
             //TODO log message + chat + username
-
+            //TODO TRY TO SEND EXCEL WITH DB DATA
             String messageToBot = message.text().replace(System.getenv(BOT_NAME), "");
             if (Constants.BOT_COMMANDS.containsKey(messageToBot.toLowerCase())) {
                 sendMessage = new SendMessage(chatId, Constants.BOT_COMMANDS.get(messageToBot.toLowerCase()));
             }
+            if(messageToBot.equals("/upload")) {
+                canUploadFile = true;
+            }
         }
 
-        if (message.document() != null && message.document().fileName().contains(EXCEL_FILE_FORMAT)) {
+        if (message.document() != null && message.document().fileName().contains(EXCEL_FILE_FORMAT) && canUploadFile) {
             //TODO log document + chat + username
 
             try {
-                telegramBotService.getExcelAndSaveItLocal(bot, message.document().fileId());
-                Set<String> unsuccessful = telegramBotService.updateCasesByExcel();
+                GetFile request = new GetFile(message.document().fileId());
+                File file = bot.execute(request).file();
+                Set<String> unsuccessful = telegramBotService.updateCasesByExcel(bot.getFullFilePath(file));
+
                 sendMessage = new SendMessage(chatId, "File received \n" + (unsuccessful.isEmpty() ? "" : ("Problem with \n" + unsuccessful))).parseMode(ParseMode.MarkdownV2);
             } catch (Exception e) {
                 sendMessage = new SendMessage(chatId, e.getMessage());
             }
+            canUploadFile = false;
         }
 
         if (sendMessage != null) {
@@ -84,26 +93,5 @@ public class LawyerHelperBot {
 
         bot.execute(sendMessage);
     }
-
-    public void sendUpdateMessage(Set<String> unsuccessful) {
-        // разница:, неудачно: + текст, мб через стринг билдер?
-        StringBuilder message = new StringBuilder("The updating is finished");
-        message.append("\n\n");
-
-        if (!unsuccessful.isEmpty()) {
-            message.append("Trouble with : \n");
-            unsuccessful.forEach(message::append);
-        } else {
-            message.append("All new cases have been updated");
-        }
-
-
-        SendMessage sendMessage = new SendMessage(CHAT_ID, message.toString());
-
-        sendMessage.parseMode(ParseMode.MarkdownV2);
-
-        bot.execute(sendMessage);
-    }
-
 
 }

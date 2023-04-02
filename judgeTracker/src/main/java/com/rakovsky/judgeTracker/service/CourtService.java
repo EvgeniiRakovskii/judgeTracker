@@ -30,4 +30,9 @@ public class CourtService {
     public CourtCase findByCaseNumber(String caseNumber) {
         return courtRepository.findByCaseNumber(caseNumber);
     }
+
+    public void deleteCourtCase(CourtCase courtCase) {
+        courtRepository.delete(courtCase);
+    }
+
 }

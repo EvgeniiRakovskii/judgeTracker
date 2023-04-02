@@ -1,12 +1,9 @@
 package com.rakovsky.judgeTracker.service;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.File;
-import com.pengrad.telegrambot.request.GetFile;
-import com.pengrad.telegrambot.response.GetFileResponse;
 import com.rakovsky.judgeTracker.model.CourtCase;
 import com.rakovsky.judgeTracker.service.parser.ExcelParser;
 import org.apache.commons.io.FileUtils;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -18,9 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,21 +36,20 @@ public class TelegramBotService {
     @Autowired
     private CourtService courtService;
 
-    public void getExcelAndSaveItLocal(TelegramBot bot, String fileId) throws IOException {
-        GetFile request = new GetFile(fileId);
-        GetFileResponse getFileResponse = bot.execute(request);
-
-        File file = getFileResponse.file(); // com.pengrad.telegrambot.model.File
+    public Set<String> updateCasesByExcel(String fullFilePath) throws IOException, InvalidFormatException {
         java.io.File localFile = new java.io.File(PATH_TO_LOCAL_EXCEL);
-        FileUtils.copyURLToFile(new URL(bot.getFullFilePath(file)), localFile);
-    }
+        FileUtils.copyURLToFile(new URL(fullFilePath), localFile);
 
+        Workbook workbook = new XSSFWorkbook(localFile);
 
-    public Set<String> updateCasesByExcel() throws IOException {
-        List<CourtCase> newCases = excelParser.getNewCourtCases(PATH_TO_LOCAL_EXCEL);
+        changeCustomNames(workbook);
+        deleteCases(workbook);
+        List<CourtCase> newCases = excelParser.getNewCourtCases(workbook);
 
+        if(newCases.isEmpty()) {
+            return Collections.emptySet();
+        }
         courtService.saveCases(newCases);
-        changeCustomNames();
 
         logger.info("Start to get info for new cases");
         Set<String> unsuccessful = new HashSet<>();
@@ -62,21 +58,11 @@ public class TelegramBotService {
             try {
                 logger.info(courtCase.toString());
                 Document casePage = webPageService.getCasePageWithDelay(courtCase);
-                int numberOfColumns = casePage.getElementsByClass("tabs").get(0).childNodeSize();
-                Elements elements = casePage.getElementsByAttributeValueStarting("id", "cont");
-                String tableInfo;
-
-                if (webPageService.havePdfAct(casePage)) {
-                    tableInfo = elements.stream().filter(element -> element.getElementsByAttributeValueStarting("id", "cont_doc").isEmpty()).
-                            collect(toCollection(Elements::new)).text();
-
-                } else {
-                    tableInfo = elements.text();
-                }
-                String tableInfoWithoutTag = tableInfo.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").replaceAll("\\d", "");
+                int numberOfColumns = webPageService.getNumberOfColumn(casePage);
+                String tableInfo = webPageService.getTableInfo(casePage);
 
                 courtCase.setNumberOfColumn(numberOfColumns);
-                courtCase.setMotionOfCase(tableInfoWithoutTag);
+                courtCase.setMotionOfCase(tableInfo);
                 courtService.saveCourtCase(courtCase);
 
             } catch (Exception e) {
@@ -91,10 +77,7 @@ public class TelegramBotService {
 
     }
 
-    public void changeCustomNames() throws IOException {
-        FileInputStream file = new FileInputStream(PATH_TO_LOCAL_EXCEL);
-        Workbook workbook = new XSSFWorkbook(file);
-
+    public void changeCustomNames(Workbook workbook) {
         Sheet sheet = workbook.getSheetAt(1);
 
         for (Row row : sheet) {
@@ -107,6 +90,23 @@ public class TelegramBotService {
             if (courtCase != null && courtCase.getCustomName().compareTo(row.getCell(1).getStringCellValue()) != 0) {
                 courtCase.setCustomName(row.getCell(1).getStringCellValue());
                 courtService.saveCourtCase(courtCase);
+            }
+
+        }
+    }
+
+    public void deleteCases(Workbook workbook) {
+        Sheet sheet = workbook.getSheetAt(2);
+
+        for (Row row : sheet) {
+            if (row.getCell(0) == null || row.getCell(0).getStringCellValue().isEmpty()) {
+                break;
+            }
+
+            CourtCase courtCase = courtService.findByCaseNumber(row.getCell(2).getStringCellValue());
+
+            if (courtCase != null) {
+                courtService.deleteCourtCase(courtCase);
             }
 
         }
