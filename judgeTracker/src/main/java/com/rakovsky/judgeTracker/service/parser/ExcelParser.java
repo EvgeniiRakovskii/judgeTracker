@@ -23,7 +23,7 @@ public class ExcelParser {
             }
             String customName = row.getCell(0).getStringCellValue();
             String url = row.getCell(1).getStringCellValue();
-            String caseNumber = row.getCell(2).getStringCellValue();
+            String caseNumber = row.getCell(2).getStringCellValue().trim();
 
             CourtCase courtCase = new CourtCase(
                     customName,

@@ -14,7 +14,7 @@ public class CourtService {
     private CourtRepository courtRepository;
 
     public List<CourtCase> getAllCases() {
-        return courtRepository.findAll();
+        return courtRepository.findAll().stream().sorted().toList();
     }
 
     public void saveCourtCase(CourtCase courtCase) {
