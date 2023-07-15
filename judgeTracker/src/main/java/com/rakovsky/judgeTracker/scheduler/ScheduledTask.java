@@ -5,20 +5,19 @@ import com.rakovsky.judgeTracker.model.CourtCase;
 import com.rakovsky.judgeTracker.service.CourtService;
 import com.rakovsky.judgeTracker.service.WebPageService;
 import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
-@EnableAsync
+//@EnableAsync
 @Component
 public class ScheduledTask {
 
@@ -30,45 +29,93 @@ public class ScheduledTask {
     @Autowired
     private LawyerHelperBot lawyerHelperBot;
 
-
-    @Scheduled(cron = "*/10 * * * * *", zone = "Europe/Paris")
-    //@Scheduled(cron = "0 0 17 * * *", zone = "Europe/Paris")
-    public void checkDifference() {
+    //@Scheduled(cron = "0 * * * * *", zone = "Europe/Paris")
+    @Scheduled(cron = "0 35 11 * * *", zone = "Europe/Paris")
+    public void checkDifference2() throws ExecutionException, InterruptedException {
         logger.info("Start checking difference");
-        // TODO CREATE 2 THREAD. One is only for primorskii + random delay + random User-Agent
-        List<CourtCase> cases = courtService.getAllCases().stream().sorted().toList();
+        List<CourtCase> cases = courtService.getAllCases();
+        //cases = cases.stream().filter(courtCase -> courtCase.getCustomName().contains("Грудин")).toList();
+        List<CourtCase> primorskiiJudgeCases = cases.stream().filter(courtCase -> courtCase.getUrlForCase().startsWith("https://primorsky--spb")).toList();
+        List<CourtCase> anotherJudgeCases = cases.stream().filter(courtCase -> !courtCase.getUrlForCase().startsWith("https://primorsky--spb")).toList();
 
+        CompletableFuture<Set<String>> primorskiiResult = CompletableFuture.supplyAsync(() -> checkDifferenceAsync(primorskiiJudgeCases));
+        CompletableFuture<Set<String>> anotherResult = CompletableFuture.supplyAsync(() -> checkDifferenceAsync(anotherJudgeCases));
+
+        CompletableFuture<Set<String>> commonResult = primorskiiResult
+                .thenCombine(anotherResult, (primorskii, another) -> {
+                    primorskii.addAll(another);
+                    return primorskii;
+                });
+
+        Set<String> differences = commonResult.get();
+        differences.forEach(System.out::println);
+        lawyerHelperBot.sendResultMessage(differences);
+    }
+
+
+    public Set<String> checkDifferenceAsync(List<CourtCase> cases) {
         Set<String> differences = new TreeSet<>();
-        Set<String> unsuccessful = new TreeSet<>();
+        List<CourtCase> updatedCases = new ArrayList<>();
+        List<CourtCase> errorCases = new ArrayList<>();
 
-        for (CourtCase courtCase : cases) {
-            try {
-                logger.info(courtCase.toString());
-                Document casePage = webPageService.getCasePageWithDelay(courtCase);
-                int numberOfColumns = webPageService.getNumberOfColumn(casePage);
-                String tableInfo = webPageService.getTableInfo(casePage);
+        //разделить на 2 метода, первая проверка + в другом только ошибки ,тогда уйдут сложности с условиями
+        for (int i = 0; i < 3; i++) {
 
-                if(tableInfo.equals(courtCase.getMotionOfCase())) {
-                    continue;
+            if(i!=0 && errorCases.isEmpty()){
+                break;
+            }
+
+            if(!errorCases.isEmpty()){
+                cases = errorCases;
+                try {
+                    TimeUnit.MINUTES.sleep(5);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
+            }
 
-                if(StringUtils.hasText(courtCase.getMotionOfCase())) {
-                    differences.add(String.format(" [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
+            for (CourtCase courtCase : new ArrayList<>(cases)) {
+                try {
+                    logger.info(courtCase.toString());
+                    Document casePage = webPageService.getCasePageWithDelay(courtCase);
+                    int numberOfColumns = webPageService.getNumberOfColumn(casePage);
+                    String tableInfo = webPageService.getTableInfo(casePage);
+
+                    if (tableInfo.equals(courtCase.getMotionOfCase())) {
+                        if(i!=0){
+                            errorCases.remove(courtCase);
+                        }
+                        continue;
+                    }
+
+                    // если есть текст, то есть разница
+                    if (StringUtils.hasText(courtCase.getMotionOfCase())) {
+                        differences.add(String.format(" [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
+                        logger.info("Разница в деле: " + courtCase);
+
+                    }
+
+                    // в любом случае сохраняем, мб null
+                    courtCase.setNumberOfColumn(numberOfColumns);
+                    courtCase.setMotionOfCase(tableInfo);
+
+                    updatedCases.add(courtCase);
+                    if(i!=0){
+                        errorCases.remove(courtCase);
+                    }
+                } catch (Exception e) {
+                    logger.error(e.getMessage() + " " + courtCase);
+                    if(i==0) {
+                        errorCases.add(courtCase);
+                    }
+                    //differences.add(String.format("error on [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
+                    //добавляем в новый список
                 }
-
-                courtCase.setNumberOfColumn(numberOfColumns);
-                courtCase.setMotionOfCase(tableInfo);
-                courtService.saveCourtCase(courtCase);
-
-            } catch (Exception e) {
-                logger.error(e.getMessage() + " " + courtCase);
-                unsuccessful.add(String.format(" [%s](%s) \n", courtCase.getCustomName(), courtCase.getUrlForCase()));
             }
         }
 
-        differences.forEach(System.out::println);
-        unsuccessful.forEach(System.out::println);
-        lawyerHelperBot.sendResultMessage(differences, unsuccessful);
+        errorCases.forEach(errorCase-> differences.add(String.format("error on [%s](%s) \n", errorCase.getCustomName(), errorCase.getUrlForCase())));
+        courtService.saveCases(updatedCases);
+        return differences;
     }
-
 }

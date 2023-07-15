@@ -94,4 +94,15 @@ public class LawyerHelperBot {
         bot.execute(sendMessage);
     }
 
+    public void sendResultMessage(Set<String> differences) {
+
+        String resultMessage = telegramBotService.getResultMessage(differences);
+
+
+        SendMessage sendMessage = new SendMessage(CHAT_ID, resultMessage).parseMode(ParseMode.MarkdownV2);
+
+
+        bot.execute(sendMessage);
+    }
+
 }
