@@ -41,8 +41,9 @@ public class WepPageRequestService {
     public Document getWebPage(String url) throws IOException, InterruptedException {
 
         headers.put("User-Agent", userAgents.get(ThreadLocalRandom.current().nextInt(0, userAgents.size()-1)));
-        TimeUnit.SECONDS.sleep(ThreadLocalRandom.current().nextInt(10, 20));
+        TimeUnit.SECONDS.sleep(ThreadLocalRandom.current().nextInt(10, 15));
         //TimeUnit.SECONDS.sleep(ThreadLocalRandom.current().nextInt(5, 10));
+
         return Jsoup.connect(url)
                 .headers(headers)
                 .timeout(60000).get();

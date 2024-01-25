@@ -16,13 +16,15 @@ public class Constants {
 
     static {
         BOT_COMMANDS = new HashMap<>();
-        BOT_COMMANDS.put("/info", "Привет! Я слежу за изменениями в судебных делах");
+        BOT_COMMANDS.put("/info", "Привет! Я слежу за изменениями в судебных делах\n" +
+                        "версия с запуском через кнопку для Леши");
         BOT_COMMANDS.put("/upload", "Отправьте мне excel файл, в котором таблица начинается сразу с угла \n" +
                 "*колонка А* это custom name\n" +
                 "*колонка B* это ссылка на дело\n" +
                 "*колонка С* это номер кейса\n" +
                 "Первая страница это добавление, вторая переименование и третья это удаление"
                 );
+        BOT_COMMANDS.put("/start_check", "Проверка запущена");
 
         WHITE_LIST_USERS = new HashSet<>();
         WHITE_LIST_USERS.add("groolexx");

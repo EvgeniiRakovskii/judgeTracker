@@ -16,6 +16,14 @@ public class CourtCase implements Comparable<CourtCase> {
         this.caseNumber = caseNumber;
     }
 
+    public CourtCase(String customName, String url, String caseNumber, Integer numberOfColumn, String motionOfCase) {
+        this.customName = customName;
+        this.url = url;
+        this.caseNumber = caseNumber;
+        this.numberOfColumn = numberOfColumn;
+        this.motionOfCase = motionOfCase;
+    }
+
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private Integer id;
@@ -63,6 +71,9 @@ public class CourtCase implements Comparable<CourtCase> {
     }
 
     public Integer getNumberOfColumn() {
+        if(numberOfColumn == null){
+            return 0;
+        }
         return numberOfColumn;
     }
 
@@ -71,6 +82,9 @@ public class CourtCase implements Comparable<CourtCase> {
     }
 
     public String getMotionOfCase() {
+        if (motionOfCase==null) {
+            return "";
+        }
         return motionOfCase;
     }
 

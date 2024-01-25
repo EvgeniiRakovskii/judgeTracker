@@ -1,0 +1,22 @@
+services:
+  app:
+    image: 'rays1337/docker-spring-boot-postgres:latest'
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/cases
+      - SPRING_DATASOURCE_USERNAME=strapi
+      - SPRING_DATASOURCE_PASSWORD=strapi
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - BOT_TOKEN=6224271112:AAFq4fyjFnhPQHzzvkC3b1eYer26R-33vBU
+      - BOT_NAME=@LawyerHelperBot
+  db:
+    image: 'postgres:13.1-alpine'
+    volumes:
+      - ./docker_postgres_init.sql:/docker-entrypoint-initdb.d/docker_postgres_init.sql
+    environment:
+      - POSTGRES_USER=strapi
+      - POSTGRES_PASSWORD=strapi
+      - POSTGRES_DB=cases

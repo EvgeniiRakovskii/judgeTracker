@@ -9,6 +9,7 @@ import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.rakovsky.judgeTracker.constants.Constants;
+import com.rakovsky.judgeTracker.service.CheckingChangesService;
 import com.rakovsky.judgeTracker.service.TelegramBotService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,9 @@ public class LawyerHelperBot {
     private final TelegramBot bot = new TelegramBot(System.getenv(BOT_TOKEN));
     @Autowired
     private TelegramBotService telegramBotService;
+    @Autowired
+    private CheckingChangesService checkingChangesService;
+
 
     public void serve() {
 
@@ -47,27 +51,32 @@ public class LawyerHelperBot {
 
     private void process(Update update) {
         Message message = update.message() == null ? update.channelPost() : update.message();
-
         if (message == null) {
             return;
         }
+
         SendMessage sendMessage = null;
         long chatId = message.chat().id();
 
         if (message.text() != null) {
-            //TODO log message + chat + username
-            //TODO TRY TO SEND EXCEL WITH DB DATA
+            logger.info("User {} is sending \"{}\" in chat {}", message.from().username(), message.text(), message.chat().id());
             String messageToBot = message.text().replace(System.getenv(BOT_NAME), "");
-            if (Constants.BOT_COMMANDS.containsKey(messageToBot.toLowerCase())) {
+            if (messageToBot.equals("/start_check")) {
                 sendMessage = new SendMessage(chatId, Constants.BOT_COMMANDS.get(messageToBot.toLowerCase()));
-            }
-            if(messageToBot.equals("/upload")) {
-                canUploadFile = true;
+                bot.execute(sendMessage);
+                sendResultMessage(checkingChangesService.checkChanges());
+                return;
+            } else if (Constants.BOT_COMMANDS.containsKey(messageToBot.toLowerCase())) {
+                sendMessage = new SendMessage(chatId, Constants.BOT_COMMANDS.get(messageToBot.toLowerCase()));
+                if(messageToBot.equals("/upload")) canUploadFile = true;
+            } else if (messageToBot.equals("/get_cases")) {
+                bot.execute(telegramBotService.getExcelWithCases(chatId));
+                return;
             }
         }
 
         if (message.document() != null && message.document().fileName().contains(EXCEL_FILE_FORMAT) && canUploadFile) {
-            //TODO log document + chat + username
+            logger.info(String.format("User %s is uploading %s in chat %d", message.from().username(), message.document().fileName(), message.chat().id()));
 
             try {
                 GetFile request = new GetFile(message.document().fileId());

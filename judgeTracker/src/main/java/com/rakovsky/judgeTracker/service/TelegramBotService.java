@@ -1,9 +1,10 @@
 package com.rakovsky.judgeTracker.service;
 
+import com.pengrad.telegrambot.request.SendDocument;
 import com.rakovsky.judgeTracker.model.CourtCase;
 import com.rakovsky.judgeTracker.service.parser.ExcelParser;
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.io.FileUtils;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -14,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.List;
@@ -33,7 +36,7 @@ public class TelegramBotService {
     @Autowired
     private CourtService courtService;
 
-    public Set<String> updateCasesByExcel(String fullFilePath) throws IOException, InvalidFormatException {
+    public Set<String> updateCasesByExcel(String fullFilePath) throws IOException {
         java.io.File localFile = new java.io.File(PATH_TO_LOCAL_EXCEL);
         FileUtils.copyURLToFile(new URL(fullFilePath), localFile);
         Set<String> unsuccessful = new HashSet<>();
@@ -47,7 +50,9 @@ public class TelegramBotService {
             if (newCases.isEmpty()) {
                 return unsuccessful;
             }
-            courtService.saveCases(newCases);
+           courtService.saveCases(newCases);
+
+            newCases = newCases.stream().filter(courtCase -> courtCase.getMotionOfCase()==null || courtCase.getMotionOfCase().isEmpty()).toList();
 
             logger.info("Start to get info for new cases");
 
@@ -73,12 +78,44 @@ public class TelegramBotService {
             logger.error(e.getMessage());
         }
 
-
         return unsuccessful;
+    }
 
+    public SendDocument getExcelWithCases(Long chatId)  {
+        List<CourtCase> cases = courtService.getAllCases();
+
+        try (Workbook wb = new XSSFWorkbook()) {
+            Sheet sheet = wb.createSheet("new sheet");
+            for (int i = 0; i < cases.size(); i++) {
+                CourtCase courtCase = cases.get(i);
+                Row row = sheet.createRow(i);
+                row.createCell(0).setCellValue(courtCase.getCustomName());
+                row.createCell(1).setCellValue(courtCase.getUrlForCase());
+                row.createCell(2).setCellValue(courtCase.getCaseNumber());
+                row.createCell(3).setCellValue(courtCase.getNumberOfColumn());
+                row.createCell(4).setCellValue(courtCase.getMotionOfCase());
+            }
+
+            java.io.File file = new java.io.File(PATH_TO_LOCAL_EXCEL);
+            try (OutputStream fileOut = new FileOutputStream(file)) {
+                wb.write(fileOut);
+                fileOut.flush();
+
+                return new SendDocument(chatId, file);
+
+        }} catch (IOException e) {
+            logger.info(e.getMessage());
+        }
+
+        return null;
     }
 
     public void changeCustomNames(Workbook workbook) {
+
+        if(workbook.getNumberOfSheets()==1) {
+            return;
+        }
+
         Sheet sheet = workbook.getSheetAt(1);
 
         for (Row row : sheet) {
@@ -97,6 +134,9 @@ public class TelegramBotService {
     }
 
     public void deleteCases(Workbook workbook) {
+        if(workbook.getNumberOfSheets()<2){
+            return;
+        }
         Sheet sheet = workbook.getSheetAt(2);
 
         for (Row row : sheet) {

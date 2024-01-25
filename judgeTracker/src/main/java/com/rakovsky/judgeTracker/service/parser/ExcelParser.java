@@ -24,11 +24,25 @@ public class ExcelParser {
             String customName = row.getCell(0).getStringCellValue();
             String url = row.getCell(1).getStringCellValue();
             String caseNumber = row.getCell(2).getStringCellValue().trim();
+            int numberOfColumns = 0;
+            String motionOfCase = null;
+            if(row.getCell(3)!=null) numberOfColumns = (int) row.getCell(3).getNumericCellValue();
+            if(row.getCell(4)!=null) motionOfCase = row.getCell(4).getStringCellValue();
 
-            CourtCase courtCase = new CourtCase(
-                    customName,
-                    url,
-                    caseNumber);
+            CourtCase courtCase;
+            if(numberOfColumns!=0 && motionOfCase!=null && !motionOfCase.isEmpty()) {
+                courtCase = new CourtCase(
+                        customName,
+                        url,
+                        caseNumber,
+                        numberOfColumns,
+                        motionOfCase);
+            } else {
+                courtCase = new CourtCase(
+                        customName,
+                        url,
+                        caseNumber);
+            }
             courtCases.add(courtCase);
 
         }
